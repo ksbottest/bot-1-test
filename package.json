@@ -1,11 +1,13 @@
 {
   "name": "nexus-afk-bot",
   "version": "1.0.0",
+  "type": "commonjs",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
   "dependencies": {
-    "mineflayer": "^4.15.0"
+    "mineflayer": "^4.19.0",
+    "minecraft-server-util": "^5.3.0"
   }
 }
