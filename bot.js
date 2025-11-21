@@ -4,8 +4,8 @@ const util = require("minecraft-server-util");
 const HOST = "ksnexus.progamer.me";
 const PORT = 16736;
 const USERNAME = "nexus";
-const CHECK_MS = 5000; // 5s
-const AFK_MS = 10000; // 15s anti-kick action
+const CHECK_MS = 1000;
+const AFK_MS = 10000; 
 
 let bot = null;
 let afkLoop = null;
@@ -15,8 +15,6 @@ async function checkPlayers() {
   try {
     const res = await util.status(HOST, PORT);
     const count = res.players.online;
-
-    console.log(`[Check] players online: ${count}`);
 
     if (count === 0 && !bot) {
       console.log("[+] Empty → start AFK bot");
@@ -42,20 +40,19 @@ function startBot() {
   });
 
   bot.once("spawn", () => {
-    console.log(`[+] Bot spawned (${USERNAME})`);
-    bot.chat("/gamemode spectator");
-
+    console.log(`[+] Bot spawned as ${USERNAME}`);
+    
     // start AFK
     startAFK();
   });
 
   bot.on("end", () => {
-    console.log("[Bot] Disconnected");
+    console.log("[-] Bot Disconnected");
     stopAFK();
     bot = null;
   });
 
-  bot.on("error", () => console.log("[Bot] Error"));
+  bot.on("error", () => console.log("[×] Bot Error"));
 }
 
 // === STOP BOT === //
@@ -89,4 +86,3 @@ function stopAFK() {
 
 // === MAIN LOOP === //
 setInterval(checkPlayers, CHECK_MS);
-console.log(`[Monitor] Checking every ${CHECK_MS} ms`);
