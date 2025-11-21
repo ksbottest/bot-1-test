@@ -27,6 +27,7 @@ async function checkPlayers() {
     }
   } catch {
     console.log("[Error] Cannot reach server");
+    await sleep(25000);
   }
 }
 
