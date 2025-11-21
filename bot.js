@@ -23,7 +23,7 @@ async function checkPlayers() {
       startBot();
     }
 
-    if (count > 0 && bot) {
+    if (count > 1 && bot) {
       console.log("[!] Player joined → quit bot");
       stopBot();
     }
