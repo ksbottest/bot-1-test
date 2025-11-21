@@ -1,0 +1,32 @@
+name: Minecraft AFK Bot
+
+on:
+  workflow_dispatch:
+  push:
+  schedule:
+    - cron: "0 */6 * * *" # restart every 6 hours
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 0
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Bot Forever
+        run: |
+          while true; do
+            npm start || true
+            echo "Restarting bot..."
+            sleep 3
+          done
