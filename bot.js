@@ -37,6 +37,7 @@ async function checkPlayers() {
 }
 
 // === START BOT ===
+// === START BOT ===
 function startBot() {
   if (bot) return; // safety
 
@@ -47,14 +48,15 @@ function startBot() {
     version: false // auto
   });
 
-  // Handle resource packs automatically
   bot.once("login", () => {
     console.log("[i] Bot logged in, waiting for resource pack...");
-    bot.once("resourcePack", (url, hash) => {
-      console.log(`[i] Server requested resource pack: ${url}`);
-      // Accept the resource pack (set false to decline if optional)
-      bot.acceptResourcePack(true);
-    });
+  });
+
+  // Handle resource pack
+  bot.on("resourcePack", (url, hash) => {
+    console.log(`[i] Server requested resource pack: ${url}`);
+    // Accept resource pack
+    bot.acceptResourcePack(true);
   });
 
   bot.once("spawn", () => {
@@ -76,7 +78,6 @@ function startBot() {
 
   bot.on("error", (err) => console.log("[×] Bot Error:", err));
 }
-
 // === STOP BOT ===
 function stopBot() {
   if (bot) bot.quit();
