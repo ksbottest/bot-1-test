@@ -72,15 +72,30 @@ function stopBot() {
 
 // === AFK SYSTEM ===
 function startAFK() {
-  stopAFK();
-  afkLoop = setInterval(() => {
-    if (!bot) return;
-    const yaw = Math.random() * Math.PI * 2;
-    const pitch = (Math.random() - 0.5) * 0.5;
-    bot.look(yaw, pitch, true);
-    if (Math.random() < 0.5) bot.setControlState("sneak", true);
-    setTimeout(() => bot.setControlState("sneak", false), 500);
-  }, AFK_MS);
+  if (!bot) return;
+
+  // === Random Jump === //
+  if (Math.random() < 0.4) bot.setControlState("jump", true);
+  setTimeout(() => bot.setControlState("jump", false), 300);
+
+  // === Try walking in a random radius (circle) === //
+  const angle = Math.random() * Math.PI * 2; // random rotation
+  bot.look(angle, 0, true);
+
+  // Move forward randomly
+  if (Math.random() < 0.7) {
+    bot.setControlState("forward", true);
+    setTimeout(() => bot.setControlState("forward", false), 1000);
+  }
+
+  // === Check block in front & avoid === //
+  try {
+    const front = bot.blockAt(bot.entity.position.offset(0, 0, 1));
+    if (front && !front.boundingBox === "empty") {
+      bot.setControlState("jump", true); // jump if blocked
+      setTimeout(() => bot.setControlState("jump", false), 500);
+    }
+  } catch (err) {}
 }
 
 function stopAFK() {
