@@ -3,10 +3,10 @@ const util = require("minecraft-server-util");
 
 const HOST = "ksnexus.progamer.me";
 const PORT = 16736;
-const USERNAME = "nexus";
-const CHECK_MS = 1000;  // How often to check server
-const AFK_MS = 10000;   // How often the bot moves
-const RETRY_MS = 5000;  // Retry delay if bot fails
+const USERNAME = "nexus"; // offline mode username
+const CHECK_MS = 2000;
+const AFK_MS = 10000;
+const RETRY_MS = 15000; // wait 15s before reconnecting
 
 let bot = null;
 let afkLoop = null;
@@ -33,7 +33,7 @@ async function checkPlayers() {
     }
   } catch (err) {
     console.log("[Error] Cannot reach server:", err);
-    await sleep(25000); // Wait 25s before retrying
+    await sleep(25000);
   }
 }
 
@@ -41,71 +41,60 @@ async function checkPlayers() {
 function startBot() {
   if (bot) return;
 
+  console.log("[i] Creating bot...");
+
   bot = mineflayer.createBot({
     host: HOST,
     port: PORT,
     username: USERNAME,
-    version: false, // auto-detect
-    // acceptResourcePack: false // uncomment to ignore packs if server allows
+    version: false,
+    // acceptResourcePack: true // Uncomment if you want to try ignoring pack
   });
 
-  // Login event
   bot.once("login", () => {
     console.log("[i] Bot logged in, waiting for resource pack...");
   });
 
-  // Resource pack handling
   bot.on("resourcePack", (url, hash) => {
-    console.log(`[i] Server requested resource pack: ${url}`);
-
-    // Accept resource pack with retry logic
+    console.log(`[i] Resource pack requested: ${url}`);
     bot.acceptResourcePack()
-      .then(() => console.log("[i] Resource pack accepted!"))
-      .catch(err => {
-        console.log("[!] Failed to accept resource pack:", err);
-        bot.quit(); // Will trigger retry in 'end' event
+      .then(() => console.log("[i] Resource pack accepted"))
+      .catch(() => {
+        console.log("[!] Failed to accept resource pack");
+        bot.quit();
       });
   });
 
-  // Track resource pack status
   bot.on("resourcePackStatus", status => {
     console.log(`[i] Resource pack status: ${status}`);
     if (status === "FAILED_DOWNLOAD" || status === "DECLINED") {
-      console.log("[!] Resource pack not accepted, quitting bot...");
-      bot.quit(); // Will retry in 'end' event
+      console.log("[!] Resource pack not accepted, retrying...");
+      bot.quit();
     }
   });
 
-  // Spawn event
   bot.once("spawn", () => {
     console.log(`[+] Bot spawned as ${USERNAME}`);
     startAFK();
   });
 
-  // Disconnect / Retry
   bot.on("end", () => {
     console.log("[-] Bot disconnected");
     stopAFK();
     bot = null;
-    setTimeout(() => {
-      console.log("[i] Retrying bot connection...");
-      startBot();
-    }, RETRY_MS);
+    console.log(`[i] Reconnecting in ${RETRY_MS / 1000}s...`);
+    setTimeout(startBot, RETRY_MS);
   });
 
   bot.on("kicked", reason => {
     console.log("[-] Bot kicked:", reason);
     stopAFK();
     bot = null;
-    setTimeout(() => {
-      console.log("[i] Retrying bot connection after kick...");
-      startBot();
-    }, RETRY_MS);
+    console.log(`[i] Reconnecting in ${RETRY_MS / 1000}s...`);
+    setTimeout(startBot, RETRY_MS);
   });
 
-  bot.on("error", err => {
-    console.log("[×] Bot error:", err);
-  });
+  bot.on("error", err => console.log("[×] Bot error:", err));
 }
 
 // === STOP BOT ===
@@ -121,12 +110,10 @@ function startAFK() {
   afkLoop = setInterval(() => {
     if (!bot) return;
 
-    // Random small head movement
     const yaw = Math.random() * Math.PI * 2;
     const pitch = (Math.random() - 0.5) * 0.5;
     bot.look(yaw, pitch, true);
 
-    // Random sneak toggle
     if (Math.random() < 0.5) bot.setControlState("sneak", true);
     setTimeout(() => bot.setControlState("sneak", false), 500);
 
