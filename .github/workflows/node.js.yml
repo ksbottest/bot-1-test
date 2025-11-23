@@ -2,9 +2,7 @@ name: Minecraft AFK Bot
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 */6 * * *" # restart every 6 hours
-
+  
 permissions:
   contents: read
   actions: write   # helpful but not sufficient in all cases — use PAT for deletes
@@ -28,17 +26,7 @@ jobs:
 
       - name: Run Bot Forever (background loop)
         run: |
-          # run your bot in a loop; this step will run until the job is cancelled
-          while true; do
             npm start || true
-            echo "Restarting bot..."
-            sleep 3
-          done
-
-      # cleanup step will always run when the job ends (or is cancelled)
-      - name: Install jq
-        if: always()
-        run: sudo apt-get update && sudo apt-get install -y jq curl
 
       - name: Delete ONLY non-running workflow runs
         if: always()
