@@ -113,3 +113,11 @@ jobs:
           done
 
           echo "Cleanup complete."
+          
+      - name: Restart Workflow
+        if: ${{ always() }}
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: Minecraft AFK Bot
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
