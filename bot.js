@@ -55,24 +55,6 @@ function startBot() {
     console.log("[i] Bot logged in, waiting for resource pack...");
   });
 
-  bot.on("resourcePack", (url, hash) => {
-    console.log(`[i] Resource pack requested: ${url}`);
-    bot.acceptResourcePack()
-      .then(() => console.log("[i] Resource pack accepted"))
-      .catch(() => {
-        console.log("[!] Failed to accept resource pack");
-        bot.quit();
-      });
-  });
-
-  bot.on("resourcePackStatus", status => {
-    console.log(`[i] Resource pack status: ${status}`);
-    if (status === "FAILED_DOWNLOAD" || status === "DECLINED") {
-      console.log("[!] Resource pack not accepted, retrying...");
-      bot.quit();
-    }
-  });
-
   bot.once("spawn", () => {
     console.log(`[+] Bot spawned as ${USERNAME}`);
     startAFK();
