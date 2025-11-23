@@ -13,11 +13,6 @@ const RETRY_MS = 15000;
 let bot = null;
 let afkLoop = null;
 
-// === Sleep function ===
-function sleep(ms) {
-  return new Promise(res => setTimeout(res, ms));
-}
-
 // === CHECK SERVER ===
 async function checkPlayers() {
   try {
@@ -61,16 +56,9 @@ function startBot() {
   });
 
   // === KICKED / DISCONNECT HANDLER ===
-  bot.on("end", () => scheduleReconnect("Disconnected"));
-  bot.on("kicked", (reason) => scheduleReconnect("Kicked: " + JSON.stringify(reason)));
+  bot.on("end", () => console.log("[×] Bot end:"));
+  bot.on("kicked", (reason) => console.log("[×] Bot kicked:"));
   bot.on("error", err => console.log("[×] Bot error:", err));
-}
-
-function scheduleReconnect(msg) {
-  console.log("[-] " + msg);
-  stopBot(); // ensures bot quits completely
-  console.log(`[i] Reconnecting in ${RETRY_MS / 1000}s...`);
-  setTimeout(startBot, RETRY_MS);
 }
 
 // === STOP BOT ===
