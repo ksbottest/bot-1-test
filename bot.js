@@ -57,7 +57,7 @@ function startBot() {
 
   bot.once("spawn", () => {
     console.log(`[+] Bot spawned as ${USERNAME}`);
-    console.log(`/register kingly@12345 kingly@12345`);
+    console.log(`/login kingly@12345`);
     startAFK();
   });
 
