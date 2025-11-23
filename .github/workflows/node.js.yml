@@ -30,6 +30,10 @@ jobs:
             sleep 3
           done
 
+      - name: Install jq
+        if: always()
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Delete ONLY non-running workflow runs
         if: always()
         run: |
@@ -39,7 +43,6 @@ jobs:
 
           echo "This workflow ID = $SELF"
 
-          # Get all workflow runs
           RUNS=$(curl -s -H "Authorization: token $TOKEN" \
             "https://api.github.com/repos/$REPO/actions/runs" \
             | jq -c '.workflow_runs[] | {id: .id, status: .status}')
@@ -48,7 +51,6 @@ jobs:
             ID=$(echo "$row" | jq -r '.id')
             STATUS=$(echo "$row" | jq -r '.status')
 
-            # Skip active workflows and this workflow itself
             if [ "$STATUS" = "in_progress" ] || [ "$STATUS" = "queued" ] || [ "$ID" = "$SELF" ]; then
               echo "Skipping $ID (status: $STATUS)"
               continue
@@ -58,4 +60,3 @@ jobs:
             curl -X DELETE -H "Authorization: token $TOKEN" \
               "https://api.github.com/repos/$REPO/actions/runs/$ID"
           done
-          
