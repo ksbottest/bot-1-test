@@ -6,6 +6,7 @@ const PORT = 16736;
 const USERNAME = "nexus";
 const CHECK_MS = 1000;  // How often to check server
 const AFK_MS = 10000;   // How often the bot moves
+const RETRY_MS = 5000;  // Retry delay if bot fails
 
 let bot = null;
 let afkLoop = null;
@@ -44,7 +45,8 @@ function startBot() {
     host: HOST,
     port: PORT,
     username: USERNAME,
-    version: false // auto-detect
+    version: false, // auto-detect
+    // acceptResourcePack: false // uncomment to ignore packs if server allows
   });
 
   // Login event
@@ -55,11 +57,13 @@ function startBot() {
   // Resource pack handling
   bot.on("resourcePack", (url, hash) => {
     console.log(`[i] Server requested resource pack: ${url}`);
-    bot.acceptResourcePack(true)
+
+    // Accept resource pack with retry logic
+    bot.acceptResourcePack()
       .then(() => console.log("[i] Resource pack accepted!"))
       .catch(err => {
         console.log("[!] Failed to accept resource pack:", err);
-        bot.quit();
+        bot.quit(); // Will trigger retry in 'end' event
       });
   });
 
@@ -67,8 +71,8 @@ function startBot() {
   bot.on("resourcePackStatus", status => {
     console.log(`[i] Resource pack status: ${status}`);
     if (status === "FAILED_DOWNLOAD" || status === "DECLINED") {
-      console.log("[!] Resource pack not accepted, quitting bot.");
-      bot.quit();
+      console.log("[!] Resource pack not accepted, quitting bot...");
+      bot.quit(); // Will retry in 'end' event
     }
   });
 
@@ -78,20 +82,30 @@ function startBot() {
     startAFK();
   });
 
-  // Disconnect events
+  // Disconnect / Retry
   bot.on("end", () => {
     console.log("[-] Bot disconnected");
     stopAFK();
     bot = null;
+    setTimeout(() => {
+      console.log("[i] Retrying bot connection...");
+      startBot();
+    }, RETRY_MS);
   });
 
   bot.on("kicked", reason => {
     console.log("[-] Bot kicked:", reason);
     stopAFK();
     bot = null;
+    setTimeout(() => {
+      console.log("[i] Retrying bot connection after kick...");
+      startBot();
+    }, RETRY_MS);
   });
 
-  bot.on("error", err => console.log("[×] Bot error:", err));
+  bot.on("error", err => {
+    console.log("[×] Bot error:", err);
+  });
 }
 
 // === STOP BOT ===
@@ -112,9 +126,10 @@ function startAFK() {
     const pitch = (Math.random() - 0.5) * 0.5;
     bot.look(yaw, pitch, true);
 
-    // Random sneak
+    // Random sneak toggle
     if (Math.random() < 0.5) bot.setControlState("sneak", true);
     setTimeout(() => bot.setControlState("sneak", false), 500);
+
   }, AFK_MS);
 }
 
