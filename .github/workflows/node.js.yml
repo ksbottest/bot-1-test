@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: "0 */6 * * *" # restart every 6 hours
 
+permissions:
+  contents: read
+  actions: write   # helpful but not sufficient in all cases — use PAT for deletes
+
 jobs:
   run-bot:
     runs-on: ubuntu-latest
@@ -22,41 +26,102 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Run Bot Forever
+      - name: Run Bot Forever (background loop)
         run: |
+          # run your bot in a loop; this step will run until the job is cancelled
           while true; do
             npm start || true
             echo "Restarting bot..."
             sleep 3
           done
 
+      # cleanup step will always run when the job ends (or is cancelled)
       - name: Install jq
         if: always()
-        run: sudo apt-get update && sudo apt-get install -y jq
+        run: sudo apt-get update && sudo apt-get install -y jq curl
 
       - name: Delete ONLY non-running workflow runs
         if: always()
+        env:
+          REPO: ${{ github.repository }}
+          SELF_RUN_ID: ${{ github.run_id }}
+          # Use your PAT stored as GH_PAT. Create it with repo + workflow scopes.
+          # If GH_PAT is missing the script falls back to GITHUB_TOKEN, but that may still fail.
+          TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: |
-          TOKEN="${{ github.token }}"
-          REPO="${{ github.repository }}"
-          SELF="${{ github.run_id }}"
+          set -euo pipefail
 
-          echo "This workflow ID = $SELF"
+          if [ -z "$TOKEN" ]; then
+            echo "ERROR: No token provided. Set secrets.GH_PAT or rely on github.token."
+            exit 1
+          fi
 
-          RUNS=$(curl -s -H "Authorization: token $TOKEN" \
-            "https://api.github.com/repos/$REPO/actions/runs" \
-            | jq -c '.workflow_runs[] | {id: .id, status: .status}')
+          echo "Using token from secrets (hidden). This workflow ID = $SELF_RUN_ID"
+          PAGE=1
+          PER_PAGE=100
 
-          for row in $RUNS; do
-            ID=$(echo "$row" | jq -r '.id')
-            STATUS=$(echo "$row" | jq -r '.status')
+          while :; do
+            echo "--- fetching page $PAGE"
+            RESP=$(curl -sS -H "Accept: application/vnd.github+json" \
+              -H "Authorization: token $TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$REPO/actions/runs?per_page=$PER_PAGE&page=$PAGE")
 
-            if [ "$STATUS" = "in_progress" ] || [ "$STATUS" = "queued" ] || [ "$ID" = "$SELF" ]; then
-              echo "Skipping $ID (status: $STATUS)"
-              continue
+            # if empty or no workflow_runs, break
+            COUNT=$(echo "$RESP" | jq '.workflow_runs | length')
+            if [ "$COUNT" -eq 0 ]; then
+              echo "No more runs on page $PAGE — exiting."
+              break
             fi
 
-            echo "Deleting workflow run: $ID (status: $STATUS)"
-            curl -X DELETE -H "Authorization: token $TOKEN" \
-              "https://api.github.com/repos/$REPO/actions/runs/$ID"
+            echo "Found $COUNT runs on page $PAGE"
+
+            echo "$RESP" | jq -c '.workflow_runs[] | {id: .id, status: .status, name: .name}' | while read -r row; do
+              ID=$(echo "$row" | jq -r '.id')
+              STATUS=$(echo "$row" | jq -r '.status')
+              NAME=$(echo "$row" | jq -r '.name')
+
+              # skip current run and active runs
+              if [ "$ID" = "$SELF_RUN_ID" ]; then
+                echo "Skipping self run $ID ($NAME)"
+                continue
+              fi
+              if [ "$STATUS" = "in_progress" ] || [ "$STATUS" = "queued" ]; then
+                echo "Skipping active run $ID (status: $STATUS)"
+                continue
+              fi
+
+              echo "Attempting to delete run $ID (status: $STATUS, name: $NAME)..."
+
+              HTTP=$(curl -sS -o /dev/stderr -w "%{http_code}" -X DELETE \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: token $TOKEN" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/$REPO/actions/runs/$ID" 2> /tmp/delete_resp)
+
+              # print any message returned
+              if [ -s /tmp/delete_resp ]; then
+                echo "API response: $(cat /tmp/delete_resp)"
+              fi
+
+              if [ "$HTTP" = "204" ] || [ "$HTTP" = "202" ] || [ "$HTTP" = "200" ]; then
+                echo "Deleted run $ID successfully (HTTP $HTTP)"
+              else
+                echo "Failed to delete run $ID (HTTP $HTTP)."
+                # Common reason: 403 Resource not accessible by integration (token lacks permission)
+                if [ "$HTTP" = "403" ]; then
+                  echo "403 error — likely the token used does not have permission to delete this run."
+                  echo "Use a PAT with 'repo' and 'workflow' scopes stored in secrets.GH_PAT, or ensure GITHUB_TOKEN has actions: write and org policies allow delete from actions."
+                fi
+              fi
+
+              # small sleep to avoid hitting secondary rate limits
+              sleep 1
+            done
+
+            # next page
+            PAGE=$((PAGE+1))
+            # safety — if you want to stop after N pages, add a guard here
           done
+
+          echo "Cleanup complete."
