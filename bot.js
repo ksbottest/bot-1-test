@@ -3,7 +3,7 @@ const util = require("minecraft-server-util");
 
 const HOST = "ksnexus.progamer.me";
 const PORT = 16736;
-const USERNAME = "nexus"; // offline mode username
+const USERNAME = "kingly"; // offline mode username
 const CHECK_MS = 2000;
 const AFK_MS = 10000;
 const RETRY_MS = 15000; // wait 15s before reconnecting
@@ -57,6 +57,7 @@ function startBot() {
 
   bot.once("spawn", () => {
     console.log(`[+] Bot spawned as ${USERNAME}`);
+    console.log(`/register kingly@12345 kingly@12345`);
     startAFK();
   });
 
